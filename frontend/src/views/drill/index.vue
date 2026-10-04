@@ -64,9 +64,11 @@
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条应急演练记录</span>
+      <span>共 {{ total }} 条应急演练记录 · 使用装备的可用量与队伍领用清单同步重算</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
+
+    <TeamRequisitionPanel />
   </section>
 </template>
 
@@ -80,6 +82,7 @@ import {
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
+import TeamRequisitionPanel from '@/components/TeamRequisitionPanel.vue'
 
 const meta = moduleMeta('drill')
 const columns = ["演练编号", "演练主题", "参演队伍", "演练日期", "参演人数", "使用装备", "演练评价", "演练状态"]

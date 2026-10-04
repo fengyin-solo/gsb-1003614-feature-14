@@ -3,7 +3,7 @@
     <header class="page-head">
       <div>
         <h2>火情报告管理</h2>
-        <p class="page-desc">维护火情报告，围绕报告编号、起火地点、起火时间、火势等级做登记、筛选与状态流转。</p>
+        <p class="page-desc">火情处置链路：核实火情 → 出动扑救（按起火林场联动调拨物资给承接扑火队伍，整单只扣减一次）→ 确认误报。</p>
       </div>
       <div class="page-actions">
         <button class="btn primary" type="button" @click="openCreate">登记火情报告</button>
@@ -46,15 +46,9 @@
           <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
-            <button
-              v-for="action in actions"
-              :key="action"
-              class="link"
-              type="button"
-              @click="runAction(action, row)"
-            >
-              {{ action }}
-            </button>
+            <button class="link" type="button" @click="runAction('核实火情', row)">核实火情</button>
+            <button class="link" type="button" @click="runAction('出动扑救', row)">出动扑救</button>
+            <button class="link" type="button" @click="runAction('确认误报', row)">确认误报</button>
           </td>
         </tr>
         <tr v-if="!rows.length">
@@ -64,36 +58,44 @@
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条火情报告记录</span>
+      <span>共 {{ total }} 条火情报告记录 · 出动扑救会自动调拨物资，重复提交只扣减一次</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span v-else-if="successMessage" class="qty-ok">{{ successMessage }}</span>
     </footer>
+
+    <TeamRequisitionPanel />
   </section>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 
-import {
-  downloadEntries,
-  listEntries,
-  moduleMeta,
-  runAction as applyAction,
-} from '@/api/local-service'
+import { downloadEntries, listEntries, moduleMeta, runAction as applyAction } from '@/api/local-service'
+import { dispatchFireReport } from '@/api/supply-chain'
 import type { EntryRow } from '@/data/types'
+import TeamRequisitionPanel from '@/components/TeamRequisitionPanel.vue'
+import { useSessionStore } from '@/stores/session'
 
+const store = useSessionStore()
 const meta = moduleMeta('firereport')
-const columns = ["报告编号", "起火地点", "起火时间", "火势等级", "过火面积", "扑救情况", "报告人", "报告状态"]
-const actions = ["核实火情", "出动扑救", "确认误报"]
-const statuses = ["待核实", "已确认", "已出警", "已扑灭", "误报"]
-const stats = [{"label": "今日报告数", "value": 0}, {"label": "已确认火情", "value": 0}, {"label": "扑救中火情", "value": 0}]
+const columns = ['报告编号', '起火地点', '起火时间', '火势等级', '过火面积', '扑救情况', '报告人', '报告状态']
+const statuses = ['待核实', '已确认', '已出警', '已扑灭', '误报']
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const successMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+
+const stats = computed(() => [
+  { label: '今日报告数', value: rows.value.length },
+  { label: '已确认火情', value: rows.value.filter((r) => String(r.status) === '已确认').length },
+  { label: '扑救中火情', value: rows.value.filter((r) => ['已出警', '扑救中'].includes(String(r.status))).length },
+])
+
 const statusSummary = computed(() =>
-  statuses.map((status: string) => ({
+  statuses.map((status) => ({
     status,
     count: rows.value.filter((row) => String(row.status) === status).length,
   })),
@@ -110,28 +112,32 @@ function exportRows() {
 
 function openCreate() {
   errorMessage.value = '火情报告登记入口尚未接入审批流'
+  successMessage.value = ''
 }
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
-  const result = applyAction(meta.key, Number(row.id), action)
+  successMessage.value = ''
+  // 出动扑救接入物资状态 → 火情处置调拨链路（幂等），其余动作走通用状态流转。
+  const result =
+    action === '出动扑救'
+      ? dispatchFireReport(Number(row.id))
+      : applyAction(meta.key, Number(row.id), action)
   if (!result.ok) {
     errorMessage.value = result.message
-    return
+  } else {
+    successMessage.value = result.message
   }
   reload()
 }
 
 function reload() {
   errorMessage.value = ''
-  try {
-    const payload = listEntries(meta.key, filters.value)
-    rows.value = payload.items
-    total.value = payload.total
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '火情报告列表读取失败'
-  }
+  const payload = listEntries(meta.key, filters.value)
+  rows.value = payload.items
+  total.value = payload.total
 }
 
 onMounted(reload)
+void store
 </script>

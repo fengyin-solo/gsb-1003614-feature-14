@@ -64,9 +64,12 @@
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条扑火队伍记录</span>
+      <span>共 {{ total }} 条扑火队伍记录 · 物资确认补充会向队伍下发装备待办</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
     </footer>
+
+    <EquipmentTodoPanel @handled="reload" />
+    <TeamRequisitionPanel />
   </section>
 </template>
 
@@ -80,18 +83,26 @@ import {
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
+import EquipmentTodoPanel from '@/components/EquipmentTodoPanel.vue'
+import TeamRequisitionPanel from '@/components/TeamRequisitionPanel.vue'
 
 const meta = moduleMeta('fireteam')
 const columns = ["队伍编号", "队伍名称", "所属林场", "队长姓名", "队员人数", "集结半径", "值班状态", "出动状态"]
 const actions = ["下达出动", "转入休整", "撤回队伍"]
 const statuses = ["在营待命", "已出动", "扑救中", "已撤回", "休整中"]
-const stats = [{"label": "队伍总数", "value": 0}, {"label": "待命队伍", "value": 0}, {"label": "出动队伍", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+
+const stats = computed(() => [
+  { label: '队伍总数', value: rows.value.length },
+  { label: '待命队伍', value: rows.value.filter((r) => String(r.status) === '在营待命').length },
+  { label: '出动队伍', value: rows.value.filter((r) => ['已出动', '扑救中'].includes(String(r.status))).length },
+])
+
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
