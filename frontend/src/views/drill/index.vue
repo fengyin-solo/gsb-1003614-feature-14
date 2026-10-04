@@ -63,6 +63,8 @@
       </tbody>
     </table>
 
+    <TeamIssuePanel source="应急演练" />
+
     <footer class="page-foot">
       <span>共 {{ total }} 条应急演练记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -79,13 +81,17 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import TeamIssuePanel from '@/components/TeamIssuePanel.vue'
 import type { EntryRow } from '@/data/types'
+import { useReserveStore } from '@/stores/reserve'
 
 const meta = moduleMeta('drill')
 const columns = ["演练编号", "演练主题", "参演队伍", "演练日期", "参演人数", "使用装备", "演练评价", "演练状态"]
 const actions = ["开始筹备", "完成演练", "提交总结"]
 const statuses = ["待筹备", "筹备中", "已实施", "已总结", "已归档"]
 const stats = [{"label": "年度演练次数", "value": 0}, {"label": "待演练计划", "value": 0}, {"label": "已总结场次", "value": 0}]
+
+const reserve = useReserveStore()
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
@@ -123,6 +129,7 @@ function runAction(action: string, row: EntryRow) {
 }
 
 function reload() {
+  reserve.init()
   errorMessage.value = ''
   try {
     const payload = listEntries(meta.key, filters.value)

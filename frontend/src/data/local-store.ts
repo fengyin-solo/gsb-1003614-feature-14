@@ -2,7 +2,9 @@ import { SEED_ROWS } from './seed'
 import type { EntryRow } from './types'
 
 // 本地持久化：数据放在 localStorage 里，刷新、关掉再打开都还在。
-const STORAGE_KEY = 'forest-fire-patrol:entries'
+// v2：动态储备口径改造，旧版本地结构作废，重新播种含数量与林场的样例。
+const STORAGE_KEY = 'forest-fire-patrol:entries:v2'
+const META_PREFIX = 'forest-fire-patrol:meta:'
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -56,4 +58,26 @@ export function resetRows(key: string): EntryRow[] {
 
 export function storageKey(): string {
   return STORAGE_KEY
+}
+
+// 联动元数据（台账、补充申请、装备待办等）按域名单独持久化。
+export function readMeta<T>(key: string): T | null {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return null
+  }
+  const raw = window.localStorage.getItem(META_PREFIX + key)
+  if (!raw) {
+    return null
+  }
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
+}
+
+export function writeMeta<T>(key: string, value: T): void {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(META_PREFIX + key, JSON.stringify(value))
+  }
 }

@@ -22,6 +22,7 @@
       <span v-for="item in statusSummary" :key="item.status" class="legend-item">
         {{ item.status }}：{{ item.count }}
       </span>
+      <span class="legend-item">下方「队伍领用清单」用于队伍批量领用物资出库，与装备单件状态流转分开记账、同一库存口径。</span>
     </p>
 
     <form class="filter-bar" @submit.prevent="reload">
@@ -63,6 +64,8 @@
       </tbody>
     </table>
 
+    <TeamIssuePanel source="装备模块" />
+
     <footer class="page-foot">
       <span>共 {{ total }} 条消防装备记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
@@ -79,13 +82,17 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import TeamIssuePanel from '@/components/TeamIssuePanel.vue'
 import type { EntryRow } from '@/data/types'
+import { useReserveStore } from '@/stores/reserve'
 
 const meta = moduleMeta('equipment')
 const columns = ["装备编号", "装备名称", "装备类型", "规格型号", "保管林场", "购入日期", "最近检修日", "装备状态"]
 const actions = ["领用装备", "送检登记", "报废装备"]
 const statuses = ["可用", "已领用", "待检修", "已报废"]
 const stats = [{"label": "装备总数", "value": 0}, {"label": "可用装备", "value": 0}, {"label": "待检修数", "value": 0}]
+
+const reserve = useReserveStore()
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
@@ -123,6 +130,7 @@ function runAction(action: string, row: EntryRow) {
 }
 
 function reload() {
+  reserve.init()
   errorMessage.value = ''
   try {
     const payload = listEntries(meta.key, filters.value)
